@@ -728,6 +728,17 @@
       <button id="quotesNextBtn" class="primary-btn room-locked" aria-disabled="true" onclick="continueFromLoveQuestion()">🔒 Step to Next Challenge →</button>
     </section>
 
+    <!-- ================= THANK YOU GIF SCREEN ================= -->
+    <section id="stage-thankyou" class="stage-view text-center">
+      <div class="w-full px-5 flex flex-col items-center justify-center gap-5 my-auto">
+        <p class="text-xs uppercase tracking-widest text-rose-400 font-bold">A LITTLE THANK YOU 💗</p>
+        <h2 class="font-serif text-3xl font-bold text-rose-700">Thank You!</h2>
+        <p class="text-sm text-slate-600">For making every moment special. 💖</p>
+        <img src="thank-you.gif" alt="Thank You animated GIF" class="w-full max-w-sm rounded-2xl shadow-lg border border-rose-200" loading="eager">
+        <button class="primary-btn" onclick="goToStage('stage-cupid')">Continue to Next Challenge →</button>
+      </div>
+    </section>
+
     <!-- ================= STAGE 3: CUPID ARROW MINI-GAME ================= -->
     <section id="stage-cupid" class="stage-view text-center">
       <div>
@@ -1074,7 +1085,7 @@
 
   <script>
     const stageOrder = [
-      'stage-gift', 'stage-quotes', 'stage-cupid', 'stage-door',
+      'stage-gift', 'stage-quotes', 'stage-thankyou', 'stage-cupid', 'stage-door',
       'stage-band', 'stage-counter', 'stage-gallery', 'stage-puzzle',
       'stage-notes', 'stage-promises', 'stage-cert'
     ];
@@ -1238,7 +1249,7 @@
         showRoomNotice('🔒 Please slide the love meter to 100% first. 💗');
         return;
       }
-      goToStage('stage-cupid');
+      goToStage('stage-thankyou');
     }
 
     function answerKissQuestion(accepted) {
