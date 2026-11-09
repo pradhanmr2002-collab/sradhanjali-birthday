@@ -258,6 +258,59 @@
     }
     .portal-inner-light.visible { opacity: 1; }
 
+    .name-write {
+      display: inline-block;
+      font-family: 'Dancing Script', cursive;
+      font-weight: 700;
+      font-size: 34px;
+      line-height: 1.15;
+      color: #7a0f3a;
+      margin-top: 2px;
+      clip-path: inset(-20px 100% -20px -30px);
+    }
+    .portal-inner-light.visible .name-write {
+      animation: nameWrite 2.2s ease-out 0.9s forwards, nameGlow 2.4s ease-in-out 3.1s infinite;
+    }
+    @keyframes nameWrite { to { clip-path: inset(-20px -30px -20px -30px); } }
+    @keyframes nameGlow {
+      0%, 100% { text-shadow: 0 1px 8px rgba(255,255,255,0.7); }
+      50% { text-shadow: 0 0 6px #fff, 0 0 18px #ffd1e0, 0 0 30px #ff7395; }
+    }
+
+    .note-ink {
+      font-family: 'Caveat', cursive, serif !important;
+      font-size: 16px !important;
+      font-weight: 700 !important;
+      line-height: 1.1;
+      color: #7a1d3f;
+      padding: 4px 10px !important;
+      overflow: hidden;
+    }
+    .ink-word { display: inline-block; white-space: nowrap; }
+    .ink-char {
+      display: inline-block;
+      opacity: 0;
+      animation: inkIn 0.28s ease-out forwards;
+    }
+    @keyframes inkIn {
+      from { opacity: 0; transform: translateY(3px) scale(0.85); filter: blur(1.5px); }
+      to   { opacity: 1; transform: none; filter: none; }
+    }
+
+    .balloon-float {
+      position: absolute;
+      bottom: -70px;
+      animation-name: balloonRise;
+      animation-timing-function: ease-in;
+      animation-fill-mode: both;
+    }
+    @keyframes balloonRise {
+      0%   { transform: translate(0, 0) rotate(-6deg); opacity: 0; }
+      10%  { opacity: 1; }
+      50%  { transform: translate(18px, -55vh) rotate(6deg); }
+      100% { transform: translate(-14px, -115vh) rotate(-4deg); opacity: 1; }
+    }
+
     .door-leaf {
       position: absolute;
       inset: 0;
@@ -845,7 +898,7 @@
         <div class="portal-inner-light" id="portalLight">
           <div class="text-3xl mb-1">👑✨</div>
           <h2 class="font-serif text-lg font-bold text-rose-900 leading-tight">Aaj ka din<br>sirf tumhara hai,</h2>
-          <div style="font-family:'Dancing Script',cursive;font-weight:700;font-size:34px;line-height:1.1;color:#7a0f3a;text-shadow:0 1px 8px rgba(255,255,255,0.7);margin-top:2px;">Sradhanjali 💛</div>
+          <div class="name-write">Sradhanjali 💛</div>
           <p class="text-xs text-rose-800 font-semibold mt-1">Step inside, every room is a celebration of you.</p>
         </div>
 
@@ -1035,7 +1088,7 @@
               <i class="fas fa-envelope text-rose-500"></i> NOTE 3 (Tap to open)
             </div>
             <div class="absolute inset-0 backface-hidden rotate-y-180 bg-rose-100 rounded-xl p-2.5 flex items-center justify-center text-rose-900 font-serif text-xs text-center font-bold">
-              "You show up. Every single time. Happy Birthday! 🎂"
+              "You show up. Every single time. Thank you for being a part of my life ❤️"
             </div>
           </div>
         </div>
@@ -1495,7 +1548,7 @@
     }
 
     function toggleSong() {
-      if (!bgAudio.src) {
+      if (!bgAudio.currentSrc) {
         document.getElementById('audioFileInput').click();
         return;
       }
@@ -1940,9 +1993,45 @@
     }
 
     const openedNotes = new Set();
+    function writeNoteInk(back) {
+      if (!back.dataset.text) back.dataset.text = back.textContent.trim();
+      const text = back.dataset.text;
+      const chars = (typeof Intl !== 'undefined' && Intl.Segmenter)
+        ? Array.from(new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text), x => x.segment)
+        : Array.from(text);
+      back.classList.add('note-ink');
+      back.innerHTML = '';
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'width:100%;text-align:center;';
+      back.appendChild(wrap);
+      let word = null, n = 0;
+      chars.forEach(ch => {
+        if (ch === ' ') {
+          word = null;
+          wrap.appendChild(document.createTextNode(' '));
+          n++;
+          return;
+        }
+        if (!word) {
+          word = document.createElement('span');
+          word.className = 'ink-word';
+          wrap.appendChild(word);
+        }
+        const sp = document.createElement('span');
+        sp.className = 'ink-char';
+        sp.style.animationDelay = (0.3 + n * 0.045) + 's';
+        sp.textContent = ch;
+        word.appendChild(sp);
+        n++;
+      });
+    }
+
     function flipNoteCard(num) {
       playSound(480);
-      document.getElementById(`noteCard${num}`).classList.toggle('rotate-y-180');
+      const card = document.getElementById(`noteCard${num}`);
+      const back = card.querySelector('.absolute.inset-0');
+      if (!card.classList.contains('rotate-y-180') && back) writeNoteInk(back);
+      card.classList.toggle('rotate-y-180');
       openedNotes.add(num);
       if (openedNotes.size === 4) {
         roomCompleted['stage-notes'] = true;
@@ -2065,9 +2154,30 @@
       setTimeout(() => goToStage('stage-cert'), 1200);
     }
 
+    function launchBalloons() {
+      const layer = document.createElement('div');
+      layer.style.cssText = 'position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:60;';
+      const items = ['🎈', '🎈', '🎈', '💗', '🎈'];
+      for (let i = 0; i < 16; i++) {
+        const b = document.createElement('div');
+        b.className = 'balloon-float';
+        b.textContent = items[Math.floor(Math.random() * items.length)];
+        b.style.left = (Math.random() * 90 + 2) + '%';
+        b.style.fontSize = (28 + Math.random() * 26) + 'px';
+        b.style.animationDuration = (5.5 + Math.random() * 3) + 's';
+        b.style.animationDelay = (Math.random() * 2.5) + 's';
+        layer.appendChild(b);
+      }
+      document.body.appendChild(layer);
+      setTimeout(() => layer.remove(), 11500);
+    }
+
     function triggerPartyConfetti() {
       playSound(523, 'sine', 0.4);
       confetti({ particleCount: 110, spread: 90, origin: { y: 0.5 } });
+      confetti({ particleCount: 60, angle: 60, spread: 60, origin: { x: 0, y: 0.7 } });
+      confetti({ particleCount: 60, angle: 120, spread: 60, origin: { x: 1, y: 0.7 } });
+      launchBalloons();
     }
 
     /* Falling Petals Background Animation */
