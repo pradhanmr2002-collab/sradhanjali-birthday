@@ -709,8 +709,9 @@
     #cine.sweep .cine-leak { animation: cineLeak 1.15s ease-in-out both; }
     @keyframes cineLeak { 0%{ transform:translateX(0) skewX(-14deg); opacity:0; } 25%{ opacity:1; } 100%{ transform:translateX(330%) skewX(-14deg); opacity:0; } }
 
+    .stage-view.preinit { display: flex; visibility: hidden; }
     .cine-dim, .cine-grain, .cine-bar, .cine-card, .cine-glow, .cine-vig, .cine-ribbon, .cine-flash { position:absolute; opacity:0; pointer-events:none; }
-    .cine-dim { inset:0; -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); }
+    .cine-dim { inset:0; will-change:opacity; }
     .cine-grain { inset:-10%; mix-blend-mode:overlay; background-size:180px 180px; }
     .cine-bar { left:0; right:0; height:12vh; background:#080206; opacity:1; }
     .cine-bar.top { top:0; transform:translateY(-101%); }
@@ -1705,30 +1706,29 @@
       cineEl('cine-ribbon').animate([{ left: '-30%', opacity: 1 }, { left: '112%', opacity: 1 }],
         { duration: d.inMs, delay: d.T1, easing: 'cubic-bezier(.5,0,.2,1)', fill: 'both' });
     }
-    const outTo = (t, blur) => [{ opacity: 1, filter: 'blur(0px)', transform: 'none' }, { opacity: 0, filter: 'blur(' + blur + 'px)', transform: t }];
-    const inFrom = (t, blur) => [{ opacity: 0, filter: 'blur(' + blur + 'px)', transform: t }, { opacity: 1, filter: 'blur(0px)', transform: 'none' }];
+    const outTo = (t) => [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: t }];
+    const inFrom = (t) => [{ opacity: 0, transform: t }, { opacity: 1, transform: 'none' }];
 
     const CINE_FX = {
-      'stage-door':     { title: ['', 'The Birthday Museum'], tint: ['#2a1038', '#0c0412'], bars: true, outMs: 480, hold: 750, inMs: 1050, ease: 'cubic-bezier(.2,.7,.2,1)',
+      'stage-door':     { title: ['', 'The Birthday Museum'], tint: ['#2a1038', '#0c0412'], bars: true, outMs: 480, hold: 350, inMs: 892, ease: 'cubic-bezier(.2,.7,.2,1)',
         out: outTo('scale(1.28)', 6), inn: inFrom('scale(.8)', 12), fx: d => fxVignette(d) },
-      'stage-band':     { title: ['Room One', 'The Birthday Band'], tint: ['#5a2a24', '#1c0a0a'], bars: true, outMs: 300, hold: 600, inMs: 900, ease: 'cubic-bezier(.2,.7,.2,1)',
+      'stage-band':     { title: ['Room One', 'The Birthday Band'], tint: ['#5a2a24', '#1c0a0a'], bars: true, outMs: 300, hold: 350, inMs: 765, ease: 'cubic-bezier(.2,.7,.2,1)',
         out: outTo('scale(1.05)', 4), inn: inFrom('scale(1.08)', 10), fx: d => fxFlash('#fff2c4', d, 900) },
-      'stage-counter':  { title: ['Room Two', 'Since October 2024'], tint: ['#4a1636', '#220a19'], bars: true, outMs: 380, hold: 700, inMs: 950, ease: 'cubic-bezier(.5,0,.2,1)',
+      'stage-counter':  { title: ['Room Two', 'Since October 2024'], tint: ['#4a1636', '#220a19'], bars: true, outMs: 380, hold: 350, inMs: 807, ease: 'cubic-bezier(.5,0,.2,1)',
         out: outTo('translateX(-26px)', 4), inn: [{ clipPath: 'inset(0 100% 0 0)' }, { clipPath: 'inset(0 0% 0 0)' }], fx: d => fxRibbon(d) },
-      'stage-gallery':  { title: ['Room Three', 'Favorite Moments'], tint: ['#3d2418', '#140a06'], bars: true, outMs: 380, hold: 700, inMs: 1100, ease: 'cubic-bezier(.2,.7,.2,1)',
+      'stage-gallery':  { title: ['Room Three', 'Favorite Moments'], tint: ['#3d2418', '#140a06'], bars: true, outMs: 380, hold: 350, inMs: 935, ease: 'cubic-bezier(.2,.7,.2,1)',
         out: outTo('scale(.97)', 3),
-        inn: [{ opacity: 0, filter: 'sepia(1) brightness(1.6) blur(7px)', transform: 'translateY(44px) rotate(-1.6deg)' },
-              { opacity: 1, filter: 'sepia(0) brightness(1) blur(0px)', transform: 'none' }],
+        inn: [{ opacity: 0, transform: 'translateY(44px) rotate(-1.6deg)' }, { opacity: 1, transform: 'none' }],
         fx: d => fxFlash('#ffffff', d, 700) },
-      'stage-puzzle':   { title: ['Room Four', 'The Restoration Desk'], tint: ['#2a1640', '#0f0818'], bars: true, outMs: 400, hold: 700, inMs: 850, ease: 'cubic-bezier(.2,.7,.2,1)',
+      'stage-puzzle':   { title: ['Room Four', 'The Restoration Desk'], tint: ['#2a1640', '#0f0818'], bars: true, outMs: 400, hold: 350, inMs: 722, ease: 'cubic-bezier(.2,.7,.2,1)',
         out: [{ opacity: 1, transform: 'perspective(900px) rotateY(0deg)' }, { opacity: 0, transform: 'perspective(900px) rotateY(-80deg)' }],
         inn: [{ opacity: 0, transform: 'perspective(900px) rotateY(80deg)' }, { opacity: 1, transform: 'perspective(900px) rotateY(0deg)' }] },
-      'stage-notes':    { title: ['Room Five', 'The Note Wall'], tint: ['#4a1636', '#1c0814'], bars: true, outMs: 380, hold: 700, inMs: 950, ease: 'cubic-bezier(.2,.8,.2,1)',
+      'stage-notes':    { title: ['Room Five', 'The Note Wall'], tint: ['#4a1636', '#1c0814'], bars: true, outMs: 380, hold: 350, inMs: 807, ease: 'cubic-bezier(.2,.8,.2,1)',
         out: outTo('translateY(-34px)', 4),
         inn: [{ opacity: 0, transformOrigin: '50% 0%', transform: 'perspective(900px) rotateX(-65deg)' }, { opacity: 1, transformOrigin: '50% 0%', transform: 'perspective(900px) rotateX(0deg)' }] },
-      'stage-cert':     { title: ['', 'All Of This Was For You'], tint: ['#5a3a14', '#1c1006'], bars: true, outMs: 440, hold: 800, inMs: 1250, ease: 'cubic-bezier(.16,1,.3,1)',
+      'stage-cert':     { title: ['', 'All Of This Was For You'], tint: ['#5a3a14', '#1c1006'], bars: true, outMs: 440, hold: 350, inMs: 1062, ease: 'cubic-bezier(.16,1,.3,1)',
         out: outTo('scale(.93)', 5),
-        inn: [{ opacity: 0, filter: 'brightness(2.4) blur(14px)', transform: 'scale(1.2)' }, { opacity: 1, filter: 'brightness(1) blur(0px)', transform: 'none' }],
+        inn: [{ opacity: 0, transform: 'scale(1.18)' }, { opacity: 1, transform: 'none' }],
         fx: d => fxGlow(d, 'rgba(255,205,110,.9)') },
       __back:           { outMs: 280, hold: 0, inMs: 460, ease: 'cubic-bezier(.2,.7,.2,1)', out: outTo('translateX(50px)', 5), inn: inFrom('translateX(-50px)', 5) },
       __default:        { outMs: 380, hold: 0, inMs: 650, ease: 'cubic-bezier(.2,.7,.2,1)', out: outTo('scale(1.04)', 7), inn: inFrom('scale(.97)', 10), leak: true }
@@ -1757,25 +1757,22 @@
 
       if (cfg.bars) {
         dim.style.background = 'radial-gradient(ellipse at 50% 42%, ' + cfg.tint[0] + ' 0%, ' + cfg.tint[1] + ' 62%, #12050d 100%)';
-        grain.style.backgroundImage = GRAIN;
         kick.textContent = (cfg.title && cfg.title[0]) || '';
         kick.style.display = (cfg.title && cfg.title[0]) ? '' : 'none';
         title.textContent = (cfg.title && cfg.title[1]) || '';
         dim.animate([{ opacity: 0 }, { opacity: .95 }], { duration: cfg.outMs + 200, easing: ease, fill: 'forwards' });
-        grain.animate([{ opacity: 0 }, { opacity: .16 }], { duration: cfg.outMs + 200, fill: 'forwards' });
-        grain.animate([{ transform: 'translate(0,0)' }, { transform: 'translate(-3%,2%)' }, { transform: 'translate(2%,-3%)' }, { transform: 'translate(-2%,-1%)' }, { transform: 'translate(0,0)' }],
-          { duration: 600, iterations: Infinity, easing: 'steps(5)' });
         barT.animate([{ transform: 'translateY(-101%)' }, { transform: 'translateY(0)' }], { duration: 620, easing: 'cubic-bezier(.7,0,.2,1)', fill: 'forwards' });
         barB.animate([{ transform: 'translateY(101%)' }, { transform: 'translateY(0)' }], { duration: 620, easing: 'cubic-bezier(.7,0,.2,1)', fill: 'forwards' });
         if (cfg.title) {
-          const delay = Math.round(cfg.outMs * 0.35);
-          kick.animate([{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], { duration: 650, delay, easing: 'ease-out', fill: 'both' });
-          rule.animate([{ width: '0px', opacity: 0 }, { width: '200px', opacity: 1 }], { duration: 900, delay: delay + 80, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'both' });
-          title.animate([{ opacity: 0, filter: 'blur(12px)', letterSpacing: '.2em' }, { opacity: 1, filter: 'blur(0px)', letterSpacing: '.03em' }],
-            { duration: 1000, delay: delay + 120, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'both' });
+          const delay = Math.round(cfg.outMs * 0.2);
+          kick.animate([{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], { duration: 450, delay, easing: 'ease-out', fill: 'both' });
+          rule.animate([{ width: '0px', opacity: 0 }, { width: '200px', opacity: 1 }], { duration: 600, delay: delay + 40, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'both' });
+          title.animate([{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }],
+            { duration: 650, delay: delay + 60, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'both' });
         }
       }
       try { if (cfg.fx) cfg.fx(d); } catch (e) { console.error(e); }
+      if (cfg.bars && (T1 - cfg.outMs) >= 250) setTimeout(() => prepareStage(stageId), cfg.outMs + 120);
 
       const out = oldStage.animate(cfg.out, { duration: cfg.outMs, easing: 'cubic-bezier(.4,0,.8,.4)', fill: 'forwards' });
       setTimeout(() => {
@@ -1791,7 +1788,6 @@
           // title fades, grade lifts, bars retract – the new room appears underneath
           if (cfg.title) [kick, rule, title].forEach(el => el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 480, easing: 'ease-in', fill: 'forwards' }));
           dim.animate([{ opacity: .95 }, { opacity: 0 }], { duration: Math.round(cfg.inMs * 0.95), easing: 'cubic-bezier(.3,.6,.2,1)', fill: 'forwards' });
-          grain.animate([{ opacity: .16 }, { opacity: 0 }], { duration: Math.round(cfg.inMs * 0.8), fill: 'forwards' });
           barT.animate([{ transform: 'translateY(0)' }, { transform: 'translateY(-101%)' }], { duration: 760, easing: 'cubic-bezier(.7,0,.2,1)', fill: 'forwards' });
           barB.animate([{ transform: 'translateY(0)' }, { transform: 'translateY(101%)' }], { duration: 760, easing: 'cubic-bezier(.7,0,.2,1)', fill: 'forwards' });
         }
@@ -1833,9 +1829,25 @@
       runCinematic(stageId, () => commitStage(stageId), goingBack);
     }
 
+    const preparedStage = {};
+    function prepareStage(stageId) {
+      if (!['stage-gallery', 'stage-puzzle', 'stage-promises'].includes(stageId)) return;
+      const t = document.getElementById(stageId);
+      if (!t) return;
+      const old = document.querySelector('.stage-view.active');
+      if (old && old !== t) old.style.display = 'none';   // already invisible, frees the layout for the new room
+      t.classList.add('preinit');                          // laid out but hidden, so canvases get real sizes
+      try {
+        if (stageId === 'stage-gallery') { initScratchCard(); updateGalleryDisplay(); }
+        if (stageId === 'stage-puzzle') initPuzzle();
+        if (stageId === 'stage-promises') initSignatureCanvas();
+        preparedStage[stageId] = true;
+      } catch (e) { console.error(e); }
+    }
+
     function commitStage(stageId) {
       if (stageOrder[currentStageIndex] === 'stage-quotes' && stageId !== 'stage-quotes') leaveQuotesSong();
-      document.querySelectorAll('.stage-view').forEach(s => s.classList.remove('active'));
+      document.querySelectorAll('.stage-view').forEach(s => { s.classList.remove('active', 'preinit'); s.style.display = ''; });
       const target = document.getElementById(stageId);
       if (target) {
         target.classList.add('active');
@@ -1854,13 +1866,14 @@
         roomCompleted['stage-hearttree'] = false;
         setTimeout(() => { roomCompleted['stage-hearttree'] = true; }, 3200);
       }
-      if (stageId === 'stage-gallery') {
+      if (stageId === 'stage-gallery' && !preparedStage[stageId]) {
         initScratchCard();
         updateGalleryDisplay();
       }
-      if (stageId === 'stage-puzzle') initPuzzle();
-      if (stageId === 'stage-promises') initSignatureCanvas();
-      if (stageId === 'stage-cert') triggerPartyConfetti();
+      if (stageId === 'stage-puzzle' && !preparedStage[stageId]) initPuzzle();
+      if (stageId === 'stage-promises' && !preparedStage[stageId]) initSignatureCanvas();
+      preparedStage[stageId] = false;
+      if (stageId === 'stage-cert') setTimeout(triggerPartyConfetti, 380);   // let the reveal finish first
     }
 
     function updateLoveAmount(value) {
