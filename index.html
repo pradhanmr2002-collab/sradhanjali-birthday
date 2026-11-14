@@ -701,6 +701,30 @@
     .paper-close { margin-top:0; }
     @media (max-height: 640px) { .paper-inner { min-height: 0; } #envelopeWrap { transform: scale(.85); } }
 
+    /* ===== Smooth room transitions ===== */
+    #cine { position:fixed; inset:0; z-index:9000; visibility:hidden; pointer-events:none; overflow:hidden; }
+    #cine.on { visibility:visible; pointer-events:auto; }
+    .cine-leak { position:absolute; top:-10%; bottom:-10%; left:-60%; width:60%; opacity:0; filter:blur(16px); transform:translateX(0) skewX(-14deg);
+      background: linear-gradient(90deg, transparent, rgba(255,150,195,.5), rgba(255,226,170,.6), rgba(255,150,195,.4), transparent); }
+    #cine.sweep .cine-leak { animation: cineLeak 1.15s ease-in-out both; }
+    @keyframes cineLeak { 0%{ transform:translateX(0) skewX(-14deg); opacity:0; } 25%{ opacity:1; } 100%{ transform:translateX(330%) skewX(-14deg); opacity:0; } }
+
+    .cine-dim, .cine-grain, .cine-bar, .cine-card, .cine-glow, .cine-vig, .cine-ribbon, .cine-flash { position:absolute; opacity:0; pointer-events:none; }
+    .cine-dim { inset:0; -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); }
+    .cine-grain { inset:-10%; mix-blend-mode:overlay; background-size:180px 180px; }
+    .cine-bar { left:0; right:0; height:12vh; background:#080206; opacity:1; }
+    .cine-bar.top { top:0; transform:translateY(-101%); }
+    .cine-bar.bottom { bottom:0; transform:translateY(101%); }
+    .cine-card { inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; text-align:center; padding:0 28px; color:#fff; opacity:1; }
+    .cine-kicker { font-size:12px; letter-spacing:.42em; text-transform:uppercase; color:#ffb3c9; font-weight:600; opacity:0; }
+    .cine-rule { width:0; height:1px; background:linear-gradient(90deg, transparent, #ffd48a, transparent); opacity:0; }
+    .cine-title { font-family:'Playfair Display', Georgia, serif; font-style:italic; font-size:32px; line-height:1.15; opacity:0; text-shadow:0 4px 30px rgba(255,120,170,.55); }
+    .cine-glow { left:50%; top:55%; width:140vmax; height:140vmax; margin:-70vmax 0 0 -70vmax; border-radius:50%; transform:scale(0); }
+    .cine-vig { inset:0; background: radial-gradient(ellipse at center, transparent 32%, rgba(30,8,22,.8) 100%); }
+    .cine-ribbon { top:-5%; bottom:-5%; width:20%; left:-30%; transform:skewX(-12deg);
+      background: linear-gradient(90deg, #ff5e7e, #ffa3bb 50%, #ff5e7e); box-shadow:0 0 44px rgba(255,94,126,.65); }
+    .cine-flash { inset:0; background:#fffbe8; }
+
     /* Days counter inside a heart */
     .days-heart { position:relative; width:236px; height:212px; margin:0 auto; }
     .days-heart-svg { position:absolute; inset:0; width:100%; height:100%; overflow:visible;
@@ -867,6 +891,25 @@
 
   <!-- Floating Canvas Petals -->
   <canvas id="roseCanvas"></canvas>
+
+  <!-- Smooth transition layer: just a soft light sweep, no title cards -->
+  <div id="cine" aria-hidden="true">
+    <div class="cine-dim"></div>
+    <div class="cine-grain"></div>
+    <div class="cine-leak"></div>
+    <div class="cine-glow"></div>
+    <div class="cine-vig"></div>
+    <div class="cine-ribbon"></div>
+    <div class="cine-bar top"></div>
+    <div class="cine-bar bottom"></div>
+    <div class="cine-card">
+      <div class="cine-kicker" id="cineKicker"></div>
+      <div class="cine-rule"></div>
+      <div class="cine-title" id="cineTitle"></div>
+    </div>
+    <div class="cine-flash"></div>
+  </div>
+  </div>
   <div id="romanticGlowLayer" aria-hidden="true"></div>
 
   <div class="app-viewport">
@@ -1608,7 +1651,161 @@
       if (quotesSongButton) quotesSongButton.textContent = '🎵 Play our song';
     }
 
+    /* ===== Cinematic transitions between rooms ===== */
+    let cineBusy = false;
+    let cinePending = null;
+
+    function playCineWhoosh() {
+      if (!soundEnabled) return;
+      try {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const t = audioCtx.currentTime, dur = 0.7;
+        const len = Math.floor(audioCtx.sampleRate * dur);
+        const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+        const src = audioCtx.createBufferSource();
+        src.buffer = buf;
+        const f = audioCtx.createBiquadFilter();
+        f.type = 'bandpass'; f.Q.value = 0.8;
+        f.frequency.setValueAtTime(250, t);
+        f.frequency.exponentialRampToValueAtTime(2200, t + dur * 0.8);
+        const g = audioCtx.createGain();
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.16, t + 0.25);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        src.connect(f); f.connect(g); g.connect(audioCtx.destination);
+        src.start(t);
+      } catch (e) {}
+    }
+
+    /* Every room has its own cinematic entrance:
+       old room drifts away under a tinted dark grade -> title fades in -> room opens with its own reveal. */
+    const HEART_MASK = 'url("data:image/svg+xml,' + encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 90'><path d='M50 86C6 56-4 28 19 11 35 0 48 9 50 22 52 9 65 0 81 11 104 28 94 56 50 86Z'/></svg>") + '")';
+    const GRAIN = 'url("data:image/svg+xml,' + encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .6 0'/></filter><rect width='100%' height='100%' filter='url(#n)'/></svg>") + '")';
+    const heartMask = (size) => ({ maskImage: HEART_MASK, webkitMaskImage: HEART_MASK, maskRepeat: 'no-repeat', webkitMaskRepeat: 'no-repeat',
+      maskPosition: '50% 52%', webkitMaskPosition: '50% 52%', maskSize: size, webkitMaskSize: size });
+
+    const cineEl = (cls) => document.querySelector('#cine .' + cls);
+    function fxGlow(d, color) {
+      const g = cineEl('cine-glow');
+      g.style.background = 'radial-gradient(circle, ' + color + ' 0%, rgba(255,170,195,.25) 35%, transparent 65%)';
+      g.animate([{ opacity: 0, transform: 'scale(0)' }, { opacity: 1, transform: 'scale(.9)', offset: .35 }, { opacity: 0, transform: 'scale(1.6)' }],
+        { duration: d.inMs + 300, delay: Math.max(0, d.T1 - 300), easing: 'ease-out' });
+    }
+    function fxFlash(color, d, ms) {
+      const f = cineEl('cine-flash');
+      f.style.background = color;
+      f.animate([{ opacity: 0 }, { opacity: .95, offset: .2 }, { opacity: 0 }], { duration: ms, delay: Math.max(0, d.T1 - 100), easing: 'ease-out' });
+    }
+    function fxVignette(d) {
+      cineEl('cine-vig').animate([{ opacity: 0 }, { opacity: 1, offset: .5 }, { opacity: 0 }], { duration: d.T1 + d.inMs, easing: 'ease-in-out' });
+    }
+    function fxRibbon(d) {
+      cineEl('cine-ribbon').animate([{ left: '-30%', opacity: 1 }, { left: '112%', opacity: 1 }],
+        { duration: d.inMs, delay: d.T1, easing: 'cubic-bezier(.5,0,.2,1)', fill: 'both' });
+    }
+    const outTo = (t, blur) => [{ opacity: 1, filter: 'blur(0px)', transform: 'none' }, { opacity: 0, filter: 'blur(' + blur + 'px)', transform: t }];
+    const inFrom = (t, blur) => [{ opacity: 0, filter: 'blur(' + blur + 'px)', transform: t }, { opacity: 1, filter: 'blur(0px)', transform: 'none' }];
+
+    const CINE_FX = {
+      'stage-door':     { title: ['', 'The Birthday Museum'], tint: ['#2a1038', '#0c0412'], bars: true, outMs: 480, hold: 750, inMs: 1050, ease: 'cubic-bezier(.2,.7,.2,1)',
+        out: outTo('scale(1.28)', 6), inn: inFrom('scale(.8)', 12), fx: d => fxVignette(d) },
+      'stage-band':     { title: ['Room One', 'The Birthday Band'], tint: ['#5a2a24', '#1c0a0a'], bars: true, outMs: 300, hold: 600, inMs: 900, ease: 'cubic-bezier(.2,.7,.2,1)',
+        out: outTo('scale(1.05)', 4), inn: inFrom('scale(1.08)', 10), fx: d => fxFlash('#fff2c4', d, 900) },
+      'stage-counter':  { title: ['Room Two', 'Since October 2024'], tint: ['#4a1636', '#220a19'], bars: true, outMs: 380, hold: 700, inMs: 950, ease: 'cubic-bezier(.5,0,.2,1)',
+        out: outTo('translateX(-26px)', 4), inn: [{ clipPath: 'inset(0 100% 0 0)' }, { clipPath: 'inset(0 0% 0 0)' }], fx: d => fxRibbon(d) },
+      'stage-gallery':  { title: ['Room Three', 'Favorite Moments'], tint: ['#3d2418', '#140a06'], bars: true, outMs: 380, hold: 700, inMs: 1100, ease: 'cubic-bezier(.2,.7,.2,1)',
+        out: outTo('scale(.97)', 3),
+        inn: [{ opacity: 0, filter: 'sepia(1) brightness(1.6) blur(7px)', transform: 'translateY(44px) rotate(-1.6deg)' },
+              { opacity: 1, filter: 'sepia(0) brightness(1) blur(0px)', transform: 'none' }],
+        fx: d => fxFlash('#ffffff', d, 700) },
+      'stage-puzzle':   { title: ['Room Four', 'The Restoration Desk'], tint: ['#2a1640', '#0f0818'], bars: true, outMs: 400, hold: 700, inMs: 850, ease: 'cubic-bezier(.2,.7,.2,1)',
+        out: [{ opacity: 1, transform: 'perspective(900px) rotateY(0deg)' }, { opacity: 0, transform: 'perspective(900px) rotateY(-80deg)' }],
+        inn: [{ opacity: 0, transform: 'perspective(900px) rotateY(80deg)' }, { opacity: 1, transform: 'perspective(900px) rotateY(0deg)' }] },
+      'stage-notes':    { title: ['Room Five', 'The Note Wall'], tint: ['#4a1636', '#1c0814'], bars: true, outMs: 380, hold: 700, inMs: 950, ease: 'cubic-bezier(.2,.8,.2,1)',
+        out: outTo('translateY(-34px)', 4),
+        inn: [{ opacity: 0, transformOrigin: '50% 0%', transform: 'perspective(900px) rotateX(-65deg)' }, { opacity: 1, transformOrigin: '50% 0%', transform: 'perspective(900px) rotateX(0deg)' }] },
+      'stage-cert':     { title: ['', 'All Of This Was For You'], tint: ['#5a3a14', '#1c1006'], bars: true, outMs: 440, hold: 800, inMs: 1250, ease: 'cubic-bezier(.16,1,.3,1)',
+        out: outTo('scale(.93)', 5),
+        inn: [{ opacity: 0, filter: 'brightness(2.4) blur(14px)', transform: 'scale(1.2)' }, { opacity: 1, filter: 'brightness(1) blur(0px)', transform: 'none' }],
+        fx: d => fxGlow(d, 'rgba(255,205,110,.9)') },
+      __back:           { outMs: 280, hold: 0, inMs: 460, ease: 'cubic-bezier(.2,.7,.2,1)', out: outTo('translateX(50px)', 5), inn: inFrom('translateX(-50px)', 5) },
+      __default:        { outMs: 380, hold: 0, inMs: 650, ease: 'cubic-bezier(.2,.7,.2,1)', out: outTo('scale(1.04)', 7), inn: inFrom('scale(.97)', 10), leak: true }
+    };
+
+    function cineClear(cine) { cine.querySelectorAll('*').forEach(e => e.getAnimations().forEach(a => a.cancel())); }
+
+    function runCinematic(stageId, commit, back) {
+      const cine = document.getElementById('cine');
+      const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const oldStage = document.querySelector('.stage-view.active');
+      if (!cine || reduce || !oldStage || !oldStage.animate) { commit(); return; }
+      const cfg = back ? CINE_FX.__back : (CINE_FX[stageId] || CINE_FX.__default);
+      const T1 = cfg.outMs + (cfg.hold || 0);
+      const d = { outMs: cfg.outMs, inMs: cfg.inMs, T1 };
+      cineBusy = true;
+      cineClear(cine);
+      cine.className = 'on';
+      void cine.offsetWidth;
+      playCineWhoosh();
+
+      const dim = cineEl('cine-dim'), grain = cineEl('cine-grain'), card = cineEl('cine-card');
+      const barT = document.querySelector('#cine .cine-bar.top'), barB = document.querySelector('#cine .cine-bar.bottom');
+      const kick = document.getElementById('cineKicker'), rule = cineEl('cine-rule'), title = document.getElementById('cineTitle');
+      const ease = 'cubic-bezier(.4,0,.2,1)';
+
+      if (cfg.bars) {
+        dim.style.background = 'radial-gradient(ellipse at 50% 42%, ' + cfg.tint[0] + ' 0%, ' + cfg.tint[1] + ' 62%, #12050d 100%)';
+        grain.style.backgroundImage = GRAIN;
+        kick.textContent = (cfg.title && cfg.title[0]) || '';
+        kick.style.display = (cfg.title && cfg.title[0]) ? '' : 'none';
+        title.textContent = (cfg.title && cfg.title[1]) || '';
+        dim.animate([{ opacity: 0 }, { opacity: .95 }], { duration: cfg.outMs + 200, easing: ease, fill: 'forwards' });
+        grain.animate([{ opacity: 0 }, { opacity: .16 }], { duration: cfg.outMs + 200, fill: 'forwards' });
+        grain.animate([{ transform: 'translate(0,0)' }, { transform: 'translate(-3%,2%)' }, { transform: 'translate(2%,-3%)' }, { transform: 'translate(-2%,-1%)' }, { transform: 'translate(0,0)' }],
+          { duration: 600, iterations: Infinity, easing: 'steps(5)' });
+        barT.animate([{ transform: 'translateY(-101%)' }, { transform: 'translateY(0)' }], { duration: 620, easing: 'cubic-bezier(.7,0,.2,1)', fill: 'forwards' });
+        barB.animate([{ transform: 'translateY(101%)' }, { transform: 'translateY(0)' }], { duration: 620, easing: 'cubic-bezier(.7,0,.2,1)', fill: 'forwards' });
+        if (cfg.title) {
+          const delay = Math.round(cfg.outMs * 0.35);
+          kick.animate([{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], { duration: 650, delay, easing: 'ease-out', fill: 'both' });
+          rule.animate([{ width: '0px', opacity: 0 }, { width: '200px', opacity: 1 }], { duration: 900, delay: delay + 80, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'both' });
+          title.animate([{ opacity: 0, filter: 'blur(12px)', letterSpacing: '.2em' }, { opacity: 1, filter: 'blur(0px)', letterSpacing: '.03em' }],
+            { duration: 1000, delay: delay + 120, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'both' });
+        }
+      }
+      try { if (cfg.fx) cfg.fx(d); } catch (e) { console.error(e); }
+
+      const out = oldStage.animate(cfg.out, { duration: cfg.outMs, easing: 'cubic-bezier(.4,0,.8,.4)', fill: 'forwards' });
+      setTimeout(() => {
+        try { commit(); } catch (e) { console.error(e); }
+        out.cancel();
+        const newStage = document.querySelector('.stage-view.active');
+        if (newStage && newStage.animate) {
+          try { newStage.animate(cfg.inn, { duration: cfg.inMs, easing: cfg.ease }); } catch (e) { console.error(e); }
+        }
+        if (cfg.leak) cine.classList.add('sweep');
+        playSound(660, 'sine', 0.06);
+        if (cfg.bars) {
+          // title fades, grade lifts, bars retract – the new room appears underneath
+          if (cfg.title) [kick, rule, title].forEach(el => el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 480, easing: 'ease-in', fill: 'forwards' }));
+          dim.animate([{ opacity: .95 }, { opacity: 0 }], { duration: Math.round(cfg.inMs * 0.95), easing: 'cubic-bezier(.3,.6,.2,1)', fill: 'forwards' });
+          grain.animate([{ opacity: .16 }, { opacity: 0 }], { duration: Math.round(cfg.inMs * 0.8), fill: 'forwards' });
+          barT.animate([{ transform: 'translateY(0)' }, { transform: 'translateY(-101%)' }], { duration: 760, easing: 'cubic-bezier(.7,0,.2,1)', fill: 'forwards' });
+          barB.animate([{ transform: 'translateY(0)' }, { transform: 'translateY(101%)' }], { duration: 760, easing: 'cubic-bezier(.7,0,.2,1)', fill: 'forwards' });
+        }
+        setTimeout(() => {
+          cineClear(cine);
+          cine.className = '';
+          cineBusy = false;
+          if (cinePending) { const next = cinePending; cinePending = null; goToStage(next); }
+        }, Math.max(cfg.inMs, 780) + 60);
+      }, T1);
+    }
+
     function goToStage(stageId) {
+      if (cineBusy) { cinePending = stageId; return; }
       const targetIndex = stageOrder.indexOf(stageId);
       if (targetIndex > currentStageIndex) {
         const currentId = stageOrder[currentStageIndex];
@@ -1631,8 +1828,13 @@
           return;
         }
       }
+      const fromId = stageOrder[currentStageIndex];
+      const goingBack = targetIndex < currentStageIndex;
+      runCinematic(stageId, () => commitStage(stageId), goingBack);
+    }
+
+    function commitStage(stageId) {
       if (stageOrder[currentStageIndex] === 'stage-quotes' && stageId !== 'stage-quotes') leaveQuotesSong();
-      playSound(480, 'sine', 0.1);
       document.querySelectorAll('.stage-view').forEach(s => s.classList.remove('active'));
       const target = document.getElementById(stageId);
       if (target) {
